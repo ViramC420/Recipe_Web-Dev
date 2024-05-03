@@ -1,45 +1,91 @@
-<?php 
+<?php
 
-session_start();
-error_reporting(E_ALL);
-ini_set("log_errors", 1);
-ini_set("display_erros", 1);
+require_once("config.php");
 
-$conn = new PDO(
-    "mysql:host=localhost;dbname=projectfood",  // change dbname
-    "projectfood",                         // change username
-    "Mkez$1Lek",                      // change password
-    $options);
+if (isset($_POST["login"])) {
+    echo "Log in attempt made through form<br>";
 
-if (isset($_POST["UName"])) {
-    $loginQuery = $conn->prepare("select * from User where UName = :UName");
-    $loginQuery->bindParam(":UName", $_POST["UName"], PDO::PARAM_STR);
-    $loginQuery->execute();
+    $ssn = $_POST["UName"];
+    $password = $_POST["password"];
 
-    $loginResult = $loginQuery->fetchAll(PDO::FETCH_ASSOC);
+    $db = get_db();
 
-    if (count($loginResult) == 0) {
-        echo "Invalid login";
-        $_SESSION["loggedin"] = false;
+    // SQL Injection potential: a reason not to use PHP's string expansion with double quotes.
+    //$ssn = '107-06-5768';
+    //$ssn = "' OR '1' = '1";
+
+    //SELECT Dnumber, SupervisorSSN FROM Employee WHERE SSN = '' OR '1' = '1'
+    // SELECT Dnumber, SupervisorSSN FROM Employee WHERE SSN = '$ssn'
+
+    $verify = $db->prepare("SELECT Password FROM User WHERE UName = ?");
+    $verify->bindParam(1, $ssn, PDO::PARAM_STR);
+
+    if (!$verify->execute()) {
+        print_r($verify->errorInfo());
+    }
+
+    $verifyResults = $verify->fetchAll(PDO::FETCH_ASSOC);
+
+    $loginError = false;
+
+    // Part 1: we know that the employee UName is valid. 
+    if (count($verifyResults) == 1) {
+
+        if (password_verify($password, $verifyResults[0]["Password"])) {
+
+            $q = $db->prepare("SELECT UName FROM Employee WHERE UName = ?");
+            $q->bindParam(1, $ssn, PDO::PARAM_STR);
+        
+            if (!$q->execute()) {
+                print_r($q->errorInfo());
+            }
+            else {
+                echo "Query successful...<br>";
+            }
+        
+            $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+        
+            if (count($rows) == 1) {
+                $_SESSION["logged_in"] = true;
+                $_SESSION["UName"] = $ssn;
+                $_SESSION["Dnumber"] = $rows[0]["Dnumber"];
+                $_SESSION["SupervisorUName"] = $rows[0]["SupervisorUName"];
+                $_SESSION["Fname"] = $rows[0]["Fname"];
+                $_SESSION["Lname"] = $rows[0]["Lname"];
+                header("Location: index.php");
+            }
+            else {
+                $loginError = false;
+            }
+        }
+        else {
+            $loginError = true;
+        }
     }
     else {
-        echo "Welcome, " . $loginResult[0]["UName"];
-        $_SESSION["loggedin"] = true;
-        $_SESSION["name"] = $loginResult[0]["UName"];
+        $loginError = true;
     }
 
-    echo "<BR>";
-}
-
-if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"]) {
-    echo "<a href=\"loggedin.php\">User homepage</a><br>";
+    if ($loginError) {
+        echo "Invalid credentials<br>";
+    }
 }
 
 ?>
 
-
-
-<form method="POST" action="login.php">
-    <input type="text" name="UName" placeholder="Login Name">
-    <input type="submit" name="Login" value="Login">
-</form>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>ProjectFood Login</title>
+    </head>
+    <body>
+        <h1>ProjectFood Login</h1>
+        <form action="login.php" method="POST">
+            <input type="text" name="UName" placeholder="User UName">
+            <input type="password" name="password">
+            <input type="submit" name="login" value="Log in">
+        </form>
+    </body>
+</html>
