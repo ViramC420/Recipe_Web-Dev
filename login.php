@@ -1,5 +1,6 @@
 <?php
 
+$PROJECT_NAME = "Project Food";
 session_start();
 
 error_reporting(E_ALL);
@@ -41,8 +42,22 @@ if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"]) {
 ?>
 
 
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title><?= $PROJECT_NAME ?></title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1><?= $PROJECT_NAME ?></h1>
+    <?php include("nav.php"); ?>
+    <h2>Login</h2>
 
-<form method="POST" action="login.php">
+    <form method="POST" action="login.php">
     <input type="text" name="UName" placeholder="Username">
     <input type="submit" name="Login" value="Login">
-</form>
+    </form>
+
+</body>
+</html>
