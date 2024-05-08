@@ -1,91 +1,48 @@
 <?php
 
-require_once("config.php");
+session_start();
 
-if (isset($_POST["login"])) {
-    echo "Log in attempt made through form<br>";
+error_reporting(E_ALL);
+ini_set("log_errors", 1);
+ini_set("display_errors", 1);
 
-    $ssn = $_POST["UName"];
-    $password = $_POST["password"];
+// Option 1: hardcode
+// Option 2: store in a config file and read in from PHP
+$db = new PDO(
+    "mysql:host=localhost;dbname=projectfood", 
+    "projectfood",                         
+    "Mkez$1Lek",                      
+    );
 
-    $db = get_db();
+if (isset($_POST["UName"])) {
+    $loginQuery = $db->prepare("select * from User where UName = :UName");
+    $loginQuery->bindParam(":UName", $_POST["UName"], PDO::PARAM_STR);
+    $loginQuery->execute();
 
-    // SQL Injection potential: a reason not to use PHP's string expansion with double quotes.
-    //$ssn = '107-06-5768';
-    //$ssn = "' OR '1' = '1";
+    $loginResult = $loginQuery->fetchAll(PDO::FETCH_ASSOC);
 
-    //SELECT Dnumber, SupervisorSSN FROM Employee WHERE SSN = '' OR '1' = '1'
-    // SELECT Dnumber, SupervisorSSN FROM Employee WHERE SSN = '$ssn'
-
-    $verify = $db->prepare("SELECT Password FROM User WHERE UName = ?");
-    $verify->bindParam(1, $ssn, PDO::PARAM_STR);
-
-    if (!$verify->execute()) {
-        print_r($verify->errorInfo());
-    }
-
-    $verifyResults = $verify->fetchAll(PDO::FETCH_ASSOC);
-
-    $loginError = false;
-
-    // Part 1: we know that the employee UName is valid. 
-    if (count($verifyResults) == 1) {
-
-        if (password_verify($password, $verifyResults[0]["Password"])) {
-
-            $q = $db->prepare("SELECT UName FROM Employee WHERE UName = ?");
-            $q->bindParam(1, $ssn, PDO::PARAM_STR);
-        
-            if (!$q->execute()) {
-                print_r($q->errorInfo());
-            }
-            else {
-                echo "Query successful...<br>";
-            }
-        
-            $rows = $q->fetchAll(PDO::FETCH_ASSOC);
-        
-            if (count($rows) == 1) {
-                $_SESSION["logged_in"] = true;
-                $_SESSION["UName"] = $ssn;
-                $_SESSION["Dnumber"] = $rows[0]["Dnumber"];
-                $_SESSION["SupervisorUName"] = $rows[0]["SupervisorUName"];
-                $_SESSION["Fname"] = $rows[0]["Fname"];
-                $_SESSION["Lname"] = $rows[0]["Lname"];
-                header("Location: index.php");
-            }
-            else {
-                $loginError = false;
-            }
-        }
-        else {
-            $loginError = true;
-        }
+    if (count($loginResult) == 0) {
+        echo "Invalid login";
+        $_SESSION["loggedin"] = false;
     }
     else {
-        $loginError = true;
+        echo "Welcome, " . $loginResult[0]["UName"];
+        $_SESSION["loggedin"] = true;
+        $_SESSION["name"] = $loginResult[0]["UName"]; // . " " . $loginResult[0]["Lname"]
     }
 
-    if ($loginError) {
-        echo "Invalid credentials<br>";
-    }
+    echo "<BR>";
+}
+
+if (isset($_SESSION["loggedin"]) && $_SESSION["loggedin"]) {
+    echo "<a href=\"loggedin.php\">User homepage</a><br>";
 }
 
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>ProjectFood Login</title>
-    </head>
-    <body>
-        <h1>ProjectFood Login</h1>
-        <form action="login.php" method="POST">
-            <input type="text" name="UName" placeholder="User UName">
-            <input type="password" name="password">
-            <input type="submit" name="login" value="Log in">
-        </form>
-    </body>
-</html>
+
+
+<form method="POST" action="login.php">
+    <input type="text" name="UName" placeholder="Username">
+    <input type="submit" name="Login" value="Login">
+</form>
